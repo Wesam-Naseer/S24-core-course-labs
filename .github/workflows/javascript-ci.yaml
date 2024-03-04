@@ -1,14 +1,14 @@
-name: Python CI
+name: Node.js CI
 
 on:
   push:
     branches: [main, lab03]
     paths:
-      - "app_python/**"
+      - "app_javascript/**"
   pull_request:
     branches: [main, lab03]
     paths:
-      - "app_python/**"
+      - "app_javascript/**"
 
 jobs:
   security:
@@ -25,57 +25,34 @@ jobs:
           mv ./snyk /usr/local/bin/
 
       - name: Snyk test
-        working-directory: app_python
+        working-directory: app_javascript
         run: |
-          pip install -r requirements.txt
+          npm ci
           snyk auth ${{ secrets.SNYK_TOKEN }}
           snyk test --severity-threshold=high
 
   build:
     name: Build and Test
     runs-on: ubuntu-latest
-
-    env:
-      CACHE_DIR: /home/runner/.cache/pip
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: ${{ env.CACHE_DIR }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('app_python/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.12.0
-
       - name: Install dependencies
-        working-directory: app_python
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        working-directory: app_javascript
+        run: npm ci
 
       - name: Lint code
-        working-directory: app_python
-        run: |
-          black . --line-length=79
-          flake8 .
+        working-directory: app_javascript
+        run: npm run lint
 
       - name: Tests
-        run: |
-          pytest .
+        working-directory: app_javascript
+        run: npm run test
 
   push-docker:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-
-    env:
-      DOCKER_BUILDKIT: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -90,16 +67,14 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-docker-${{ hashFiles('app_python/**/Dockerfile') }}
+          key: ${{ runner.os }}-docker-${{ hashFiles('app_javascript/**/Dockerfile') }}
           restore-keys: |
             ${{ runner.os }}-docker-
 
       - name: Build Docker Image
-        working-directory: app_python
-        run: |
-          docker build -t wesamnaseer/mtz:v1.0 .
+        working-directory: app_javascript
+        run: docker build -t wesamnaseer/mtz_js .
 
       - name: Push Docker Image
-        working-directory: app_python
-        run: |
-          docker push wesamnaseer/mtz:v1.0
+        working-directory: app_javascript
+        run: docker push wesamnaseer/mtz_js
